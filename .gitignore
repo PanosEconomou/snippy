@@ -3,3 +3,5 @@ CMakeFiles/
 cmake_install.cmake
 snippy
 Makefile
+.cache/
+compile_commands.json

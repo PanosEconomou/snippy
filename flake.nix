@@ -12,6 +12,7 @@
     devShells.${system}.default = pkgs.mkShell { 
       nativeBuildInputs = with pkgs; [
         cmake
+        clang-tools
         pkg-config
       ];
       buildInputs = with pkgs; [
