@@ -5,3 +5,4 @@ snippy
 Makefile
 .cache/
 compile_commands.json
+tmp
