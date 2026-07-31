@@ -1,56 +1,29 @@
-#include <libevdev/libevdev.h>
+#include "keyboards.h"
+
 #include <stdio.h>
-#include <fcntl.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <stdbool.h>
-#include <errno.h>
 
-struct libevdev* find_device_by_name(const char* name){
-    struct libevdev* dev = NULL;
-    char path[32];
-    for (int i = 0;; i++){
-        snprintf(path, sizeof path, "/dev/input/event%d", i); 
-        int file_descriptor = open(path, O_RDONLY | O_CLOEXEC);
-
-        if (file_descriptor == -1) break;
-
-        if (libevdev_new_from_fd(file_descriptor, &dev) == 0) {
-            if (!strcmp(name,libevdev_get_name(dev))) {
-                return dev;
-            }
-            libevdev_free(dev);
-            dev = NULL;
-        }
-
-        close(file_descriptor);
-    }
-    return NULL;
-}
-
-static bool is_error(int status){ return status < 0 && status != -EAGAIN; };
-static bool has_next_event(int status){ return status >= 0; };
-
-void process_events(struct libevdev* dev) {
-    struct input_event ev = {0};
-    int status = 0;
-    unsigned int flags = LIBEVDEV_READ_FLAG_NORMAL | LIBEVDEV_READ_FLAG_BLOCKING;
-    while (status = libevdev_next_event(dev, flags, &ev), !is_error(status)){
-        if (!has_next_event(status)) continue;
-        printf("Got input event!\t type = %5d\t code = %5d\t value = %5d\n",ev.type, ev.code, ev.value);
-    }
-}
+#define MAX_KEYBOARDS 16
 
 int main() {
-    struct libevdev *dev = find_device_by_name("keyd virtual keyboard");
-    if (dev == NULL) {
-        printf("Couldn't find device!");
+    char nodes[MAX_KEYBOARDS][KEYBOARD_NODES_SIZE_MAX];
+    int found = keyboard_list(nodes, MAX_KEYBOARDS);
+
+    if (found < 0) {
+        fprintf(stderr, "Failed to find keyboards: %s\n", strerror(-found));
         return EXIT_FAILURE;
     }
 
-    process_events(dev);
+    if (found == 0) {
+        fprintf(stderr, "Do you have no keyboards? What's going on?\n");
+        return EXIT_FAILURE;
+    }
 
-    libevdev_free(dev);
-    return 0;
+    printf("Here are your keyboards!\n");
+    for (int i=0; i<found; i++) {
+        printf("\t%s\n", nodes[i]);
+    }
+
+    return EXIT_SUCCESS;
 }

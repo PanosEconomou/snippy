@@ -18,6 +18,7 @@
       buildInputs = with pkgs; [
         wayland
         libevdev
+        udev
       ];
     };
   };
