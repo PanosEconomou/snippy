@@ -19,6 +19,7 @@
         wayland
         libevdev
         udev
+        libxkbcommon
       ];
       shellHook = ''
         alias m="cmake --build build && sudo ./build/snippy"

@@ -9,12 +9,14 @@ add_executable(snippy)
 
 # Link external libraries
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(EVDEV REQUIRED IMPORTED_TARGET libevdev)
-pkg_check_modules(UDEV  REQUIRED IMPORTED_TARGET libudev )
+pkg_check_modules(EVDEV REQUIRED IMPORTED_TARGET libevdev )
+pkg_check_modules(UDEV  REQUIRED IMPORTED_TARGET libudev  )
+pkg_check_modules(XKB   REQUIRED IMPORTED_TARGET xkbcommon)
 target_link_libraries(snippy 
     PRIVATE 
         PkgConfig::EVDEV
         PkgConfig::UDEV
+        PkgConfig::XKB
 )
 
 # My own files
