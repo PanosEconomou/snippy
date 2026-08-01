@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <string.h>
 #include <poll.h>
+#include <xkbcommon/xkbcommon.h>
 
 int keyboard_list(char nodes[][KEYBOARD_NODE_SIZE_MAX], size_t capacity){
 
@@ -48,23 +49,34 @@ exit_udev:
     return number;
 }
 
-int keyboard_open(struct keyboard* keyboard, const char *node) {
+int keyboard_open(struct keyboard* keyboard, const char *node, struct xkb_keymap* keymap) {
     keyboard->device          = NULL;
     keyboard->file_descriptor = -1;
+    keyboard->state           = NULL;
+
     keyboard->file_descriptor = open(node, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
 
     if (keyboard->file_descriptor < 0) return -errno;
 
     int error = libevdev_new_from_fd(keyboard->file_descriptor, &(keyboard->device));
-    if(error < 0) {
-        close(keyboard->file_descriptor);
-        keyboard->file_descriptor = -1;
-        return error;
-    }
+    if(error < 0) goto error_evdev;
+
+    keyboard->state = xkb_state_new(keymap);
+    if (!keyboard->state) { error = -ENOMEM; goto error_xkb; }
 
     snprintf(keyboard->node, sizeof keyboard->node, "%s", node);
 
     return 0;
+
+error_xkb:
+    libevdev_free(keyboard->device);
+    keyboard->device = NULL;
+
+error_evdev:
+    close(keyboard->file_descriptor);
+    keyboard->file_descriptor = -1;
+
+    return error;
 }
 
 void keyboard_close(struct keyboard* keyboard) {
@@ -77,12 +89,16 @@ void keyboard_close(struct keyboard* keyboard) {
         close(keyboard->file_descriptor);
         keyboard->file_descriptor = -1;
     }
+    if(keyboard->state){
+        xkb_state_unref(keyboard->state);
+        keyboard->state = NULL;
+    }
 }
 
-int keyboard_set_open_many(struct keyboard_set* keyboards, const char nodes[][KEYBOARD_NODE_SIZE_MAX], size_t found) {
+int keyboard_set_open_many(struct keyboard_set* keyboards, const char nodes[][KEYBOARD_NODE_SIZE_MAX], size_t found, struct xkb_keymap* keymap) {
     size_t n_open = 0;
     for (size_t i=0; i<found && n_open<MAX_KEYBOARDS; i++) {
-        int error = keyboard_open(&keyboards->entries[n_open], nodes[i]);
+        int error = keyboard_open(&keyboards->entries[n_open], nodes[i], keymap);
         if (error < 0) { 
             fprintf(stderr, "Couldn't open keyboard in %s:\n\t%s\n", nodes[i], strerror(-error)); 
             continue;
@@ -94,12 +110,12 @@ int keyboard_set_open_many(struct keyboard_set* keyboards, const char nodes[][KE
     return keyboards ->count;
 }
 
-int keyboard_set_open_all(struct keyboard_set* keyboards) {
+int keyboard_set_open_all(struct keyboard_set* keyboards, struct xkb_keymap* keymap) {
     char nodes[MAX_KEYBOARDS][KEYBOARD_NODE_SIZE_MAX];
     int found = keyboard_list(nodes, MAX_KEYBOARDS);
     if (found <  0) return found;
 
-    int n_open = keyboard_set_open_many(keyboards, nodes, (size_t)found);
+    int n_open = keyboard_set_open_many(keyboards, nodes, (size_t)found, keymap);
 
     return n_open;
 }

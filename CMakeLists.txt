@@ -24,10 +24,12 @@ target_sources(snippy
     PRIVATE
         src/main.c
         src/keyboard.c
+        src/decode.c
     PRIVATE
         FILE_SET HEADERS
         BASE_DIRS 
             include
         FILES 
             include/keyboard.h
+            include/decode.h
 )

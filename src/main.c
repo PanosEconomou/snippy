@@ -1,6 +1,8 @@
 #include "keyboard.h"
+#include "decode.h"
 
 #include <fcntl.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,24 +12,12 @@
 #include <stdbool.h>
 #include <xkbcommon/xkbcommon.h>
 
-#define XKB_KEYCODE_OFFSET 8
-
 int main(void) {
-    struct xkb_rule_names names = {
-        .rules      = NULL,
-        .model      = NULL,
-        .layout     = "us",
-        .variant    = NULL,
-        .options    = NULL,
-    };
-    struct xkb_context *ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    if (!ctx) return -ENOMEM;
-
-    struct xkb_keymap* keymap = xkb_keymap_new_from_names(ctx, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
-    struct xkb_state *state = xkb_state_new(keymap);
+    struct xkb_keymap* keymap = decode_get_keymap();
+    if (!keymap) return -ENOMEM;
 
     struct keyboard_set keyboards = {0};
-    int found = keyboard_set_open_all(&keyboards);
+    int found = keyboard_set_open_all(&keyboards, keymap);
 
     if (found < 0) {
         fprintf(stderr, "Failed to find keyboards: %s\n", strerror(-found));
@@ -48,8 +38,7 @@ int main(void) {
     size_t n_pollfds = keyboard_set_pollfds(&keyboards, pfd, MAX_KEYBOARDS);
 
     struct input_event event = {0};
-    char xkb_buffer[16];
-    xkb_keycode_t xkb_code;
+    char buffer[16];
     while (keyboards.count > 0) {
         int response = poll(pfd, n_pollfds, -1);
         if (response < 0) {
@@ -79,13 +68,15 @@ int main(void) {
                     continue;
                 }
                 if (status == KEYBOARD_EVENT)   {
-                    if (event.type != EV_KEY) continue;
-                    xkb_code = event.code + XKB_KEYCODE_OFFSET;
-                    int n = xkb_state_key_get_utf8(state, xkb_code, xkb_buffer, sizeof xkb_buffer);
-                    if (event.value != 2)
-                        xkb_state_update_key(state, xkb_code, event.value ? XKB_KEY_DOWN : XKB_KEY_UP);
-                    printf("%s\ttype = %3d\tcode = %3d\txkb = %3s\tvalue = %3d\n",
-                           keyboards.entries[i].node, event.type, event.code, xkb_buffer, event.value);
+                    int n = decode_event(&keyboards.entries[i], &event, 
+                                         buffer, sizeof(buffer));
+
+                    if (event.value == 1) {
+                        printf("%s", buffer);
+                        fflush(stdout);
+                        // printf("%s\ttype = %3d\tcode = %3d\txkb = %3s\tvalue = %3d\n", keyboards.entries[i].node, event.type, event.code, buffer, event.value);
+                    }
+
                 }
             }
             if (!removed) i++;
@@ -93,6 +84,6 @@ int main(void) {
     }
 
     keyboard_set_cleanup(&keyboards);
-    xkb_context_unref(ctx);
+    decode_keymap_unref(keymap);
     return EXIT_SUCCESS;
 }
