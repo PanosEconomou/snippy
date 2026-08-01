@@ -50,9 +50,10 @@ exit_udev:
 }
 
 int keyboard_open(struct keyboard* keyboard, const char *node, struct xkb_keymap* keymap) {
-    keyboard->device          = NULL;
+    *keyboard = (struct keyboard){0};
     keyboard->file_descriptor = -1;
-    keyboard->state           = NULL;
+
+    if (!keymap) return -ENOMEM;
 
     keyboard->file_descriptor = open(node, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
 

@@ -12,11 +12,13 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(EVDEV REQUIRED IMPORTED_TARGET libevdev )
 pkg_check_modules(UDEV  REQUIRED IMPORTED_TARGET libudev  )
 pkg_check_modules(XKB   REQUIRED IMPORTED_TARGET xkbcommon)
+pkg_check_modules(WLC   REQUIRED IMPORTED_TARGET wayland-client)
 target_link_libraries(snippy 
     PRIVATE 
         PkgConfig::EVDEV
         PkgConfig::UDEV
         PkgConfig::XKB
+        PkgConfig::WLC
 )
 
 # My own files
@@ -24,12 +26,12 @@ target_sources(snippy
     PRIVATE
         src/main.c
         src/keyboard.c
-        src/decode.c
+        src/decoder.c
     PRIVATE
         FILE_SET HEADERS
         BASE_DIRS 
             include
         FILES 
             include/keyboard.h
-            include/decode.h
+            include/decoder.h
 )

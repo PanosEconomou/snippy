@@ -1,5 +1,5 @@
 #include "keyboard.h"
-#include "decode.h"
+#include "decoder.h"
 
 #include <fcntl.h>
 #include <stddef.h>
@@ -13,11 +13,15 @@
 #include <xkbcommon/xkbcommon.h>
 
 int main(void) {
-    struct xkb_keymap* keymap = decode_get_keymap();
-    if (!keymap) return -ENOMEM;
+    struct decoder decoder;
+    int msg = decoder_init(&decoder);
+    if (msg < 0) {
+        fprintf(stderr, "Failed to create keyboard decoder: %s\n", strerror(-msg));
+        return EXIT_FAILURE;
+    }
 
     struct keyboard_set keyboards = {0};
-    int found = keyboard_set_open_all(&keyboards, keymap);
+    int found = keyboard_set_open_all(&keyboards, decoder.keymap);
 
     if (found < 0) {
         fprintf(stderr, "Failed to find keyboards: %s\n", strerror(-found));
@@ -68,7 +72,7 @@ int main(void) {
                     continue;
                 }
                 if (status == KEYBOARD_EVENT)   {
-                    int n = decode_event(&keyboards.entries[i], &event, 
+                    int n = decoder_event(&keyboards.entries[i], &event, 
                                          buffer, sizeof(buffer));
 
                     if (event.value == 1) {
@@ -84,6 +88,6 @@ int main(void) {
     }
 
     keyboard_set_cleanup(&keyboards);
-    decode_keymap_unref(keymap);
+    decoder_cleanup(&decoder);
     return EXIT_SUCCESS;
 }

@@ -17,13 +17,15 @@
       ];
       buildInputs = with pkgs; [
         wayland
-        libevdev
+        libffi
         udev
+        libevdev
         libxkbcommon
       ];
       shellHook = ''
-        alias m="cmake --build build && sudo ./build/snippy"
+        alias m="cmake --build build && ./build/snippy"
         cmake -B build -S .
+        echo "IMPORTANT: Make sure you are in the 'input' group"
         echo "Use m to build and run!"
       '';
     };
