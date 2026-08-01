@@ -2,21 +2,23 @@
 
 #include <libudev.h>
 #include <libevdev/libevdev.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <poll.h>
 
 int keyboard_list(char nodes[][KEYBOARD_NODE_SIZE_MAX], size_t capacity){
 
     int number;
-    struct udev *udev = udev_new();
-    if (!udev) { number = -ENOMEM; goto exit_udev; }
+    struct udev* udev = udev_new();
+    if (!udev) return -ENOMEM; 
 
-    struct udev_enumerate *enumerate = udev_enumerate_new(udev);
-    if (!enumerate) { number = -ENOMEM; goto exit_enumerate; }
+    struct udev_enumerate* enumerate = udev_enumerate_new(udev);
+    if (!enumerate) { number = -ENOMEM; goto exit_udev; }
 
     udev_enumerate_add_match_subsystem(enumerate, "input");
     udev_enumerate_add_match_property(enumerate, "ID_INPUT_KEYBOARD", "1");
@@ -27,7 +29,9 @@ int keyboard_list(char nodes[][KEYBOARD_NODE_SIZE_MAX], size_t capacity){
     udev_list_entry_foreach(entry, udev_enumerate_get_list_entry(enumerate)) {
         if (count >= capacity) break;
 
-        struct udev_device *dev = udev_device_new_from_syspath(udev, udev_list_entry_get_name(entry));
+        struct udev_device* dev = 
+            udev_device_new_from_syspath(udev, udev_list_entry_get_name(entry));
+        if (!dev) continue;
 
         const char* node = udev_device_get_devnode(dev);
         if (node) {
@@ -38,7 +42,6 @@ int keyboard_list(char nodes[][KEYBOARD_NODE_SIZE_MAX], size_t capacity){
     }
 
     number = (int)count;
-exit_enumerate:
     udev_enumerate_unref(enumerate);
 exit_udev:
     udev_unref(udev);
@@ -76,10 +79,10 @@ void keyboard_close(struct keyboard* keyboard) {
     }
 }
 
-int keyboard_open_many(struct keyboard* keyboards, const size_t capacity, const char nodes[][KEYBOARD_NODE_SIZE_MAX], const size_t found) {
+int keyboard_set_open_many(struct keyboard_set* keyboards, const char nodes[][KEYBOARD_NODE_SIZE_MAX], size_t found) {
     size_t n_open = 0;
-    for (size_t i=0; i<found && n_open<capacity; i++) {
-        int error = keyboard_open(&keyboards[n_open], nodes[i]);
+    for (size_t i=0; i<found && n_open<MAX_KEYBOARDS; i++) {
+        int error = keyboard_open(&keyboards->entries[n_open], nodes[i]);
         if (error < 0) { 
             fprintf(stderr, "Couldn't open keyboard in %s:\n\t%s\n", nodes[i], strerror(-error)); 
             continue;
@@ -87,22 +90,62 @@ int keyboard_open_many(struct keyboard* keyboards, const size_t capacity, const 
         n_open++;
     }
 
-    return (int)n_open;
+    keyboards->count = (int)n_open;
+    return keyboards ->count;
 }
 
-int keyboard_open_all(struct keyboard* keyboards, size_t capacity) {
+int keyboard_set_open_all(struct keyboard_set* keyboards) {
     char nodes[MAX_KEYBOARDS][KEYBOARD_NODE_SIZE_MAX];
-    if (capacity > MAX_KEYBOARDS) capacity = MAX_KEYBOARDS;
-    int found = keyboard_list(nodes, capacity);
+    int found = keyboard_list(nodes, MAX_KEYBOARDS);
     if (found <  0) return found;
 
-    int n_open = keyboard_open_many(keyboards, capacity, nodes, (size_t)found);
+    int n_open = keyboard_set_open_many(keyboards, nodes, (size_t)found);
 
     return n_open;
 }
 
-void keyboard_cleanup(struct keyboard* keyboards, const size_t count) {
-    for (size_t i=0; i<count; i++) {
-        keyboard_close(&keyboards[i]);
+void keyboard_set_remove(struct keyboard_set* keyboards, size_t index) {
+    if (!keyboards || index >= keyboards->count) return;
+    keyboard_close(&keyboards->entries[index]);
+    keyboards->count--;
+    if (index != keyboards->count) {
+        keyboards->entries[index] = keyboards->entries[keyboards->count];
     }
+    keyboards->entries[keyboards->count] = (struct keyboard){ .file_descriptor = -1 };
+
+}
+
+void keyboard_set_cleanup(struct keyboard_set* keyboards) {
+    for (size_t i=0; i<keyboards->count; i++) {
+        keyboard_close(&keyboards->entries[i]);
+    }
+    keyboards->count = 0;
+}
+
+enum keyboard_status keyboard_next_event(struct keyboard* keyboard, struct input_event* event) {
+    unsigned int flags = LIBEVDEV_READ_FLAG_NORMAL;
+    int status = libevdev_next_event(keyboard->device, flags, event);
+
+    switch (status) {
+        case LIBEVDEV_READ_STATUS_SUCCESS:  return KEYBOARD_EVENT;
+        case -EAGAIN:                       return KEYBOARD_DRAINED;
+        case -ENODEV:                       return KEYBOARD_GONE;
+        case LIBEVDEV_READ_STATUS_SYNC:     {
+            struct input_event discard;
+            unsigned int discard_flags = LIBEVDEV_READ_FLAG_SYNC;
+            while (libevdev_next_event(keyboard->device, discard_flags, &discard) == LIBEVDEV_READ_STATUS_SYNC);
+            return KEYBOARD_DROPPED;
+        }
+    }
+    return KEYBOARD_GONE;
+}
+
+size_t keyboard_set_pollfds(struct keyboard_set* keyboards, struct pollfd* pfds, size_t capacity){
+    if (capacity > keyboards->count) capacity = keyboards->count;
+    for (size_t i=0; i<capacity; i++) {
+        pfds[i].fd      = keyboards->entries[i].file_descriptor; 
+        pfds[i].events  = POLLIN;
+    }
+
+    return capacity;
 }
