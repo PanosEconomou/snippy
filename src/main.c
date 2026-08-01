@@ -1,14 +1,14 @@
-#include "keyboards.h"
+#include "keyboard.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_KEYBOARDS 16
+#define CAPACITY 6
 
 int main() {
-    char nodes[MAX_KEYBOARDS][KEYBOARD_NODES_SIZE_MAX];
-    int found = keyboard_list(nodes, MAX_KEYBOARDS);
+    struct keyboard keyboards[CAPACITY] = {0};
+    int found = keyboard_open_all(keyboards, CAPACITY);
 
     if (found < 0) {
         fprintf(stderr, "Failed to find keyboards: %s\n", strerror(-found));
@@ -22,7 +22,7 @@ int main() {
 
     printf("Here are your keyboards!\n");
     for (int i=0; i<found; i++) {
-        printf("\t%s\n", nodes[i]);
+        printf("\t%s\n", keyboards[i].node);
     }
 
     return EXIT_SUCCESS;

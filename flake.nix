@@ -20,6 +20,11 @@
         libevdev
         udev
       ];
+      shellHook = ''
+        alias m="cmake --build build && sudo ./build/snippy"
+        cmake -B build -S .
+        echo "Use m to build and run!"
+      '';
     };
   };
 }

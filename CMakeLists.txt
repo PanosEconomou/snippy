@@ -27,5 +27,5 @@ target_sources(snippy
         BASE_DIRS 
             include
         FILES 
-            include/keyboards.h
+            include/keyboard.h
 )
