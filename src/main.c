@@ -1,5 +1,6 @@
 #include "keyboard.h"
 #include "decoder.h"
+#include "ring.h"
 
 #include <fcntl.h>
 #include <stddef.h>
@@ -14,6 +15,10 @@
 #include <xkbcommon/xkbcommon.h>
 
 int main(void) {
+
+    struct ring ring; 
+    ring_init(&ring); 
+
     struct decoder decoder = {0};
     int msg = decoder_init(&decoder);
     if (msg < 0) {
@@ -44,6 +49,7 @@ int main(void) {
 
     struct input_event event = {0};
     char buffer[16];
+    char output[RING_CAPACITY];
     while (keyboards.count > 0) {
         int response = poll(pfd, n_pollfds, -1);
         if (response < 0) {
@@ -77,7 +83,23 @@ int main(void) {
                     int n = decoder_event(&keyboards.entries[i], &event, 
                                          buffer, sizeof(buffer));
 
-                    if (n > 0) { printf("%.*s", n, buffer); fflush(stdout); }
+                    if (event.code == 14) {
+                        ring_pop(&ring);
+
+                        system("clear");
+                        ring_read(&ring, ring.content, output, RING_CAPACITY);
+                        printf("%3d: %.*s\n", (int)ring.content, (int)ring.content, output);
+                        fflush(stdout);
+                    }
+                    if (n > 0) { 
+                        ring_write(&ring, buffer, n);
+
+                        system("clear");
+                        ring_read(&ring, ring.content, output, RING_CAPACITY);
+                        printf("%3d: %.*s\n", (int)ring.content, (int)ring.content, output);
+                        fflush(stdout);
+                    }
+                    
                     // printf("%s\ttype = %3d\tcode = %3d\txkb = %3s\tvalue = %3d\n", keyboards.entries[i].node, event.type, event.code, buffer, event.value);
 
                 }

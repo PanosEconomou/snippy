@@ -14,6 +14,8 @@
 
 #include "keyboard.h"                       /* struct keyboard                      */
 
+#include <stdlib.h>                         /* size_t                               */
+
 /* ─────  Constants  ────────────────────────────────────────────────────────────── */
 
 #define XKB_KEYCODE_OFFSET  8               /* diff between evdev and xkb keycode   */
