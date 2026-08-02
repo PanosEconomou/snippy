@@ -10,10 +10,11 @@
 #include <poll.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <wchar.h>
 #include <xkbcommon/xkbcommon.h>
 
 int main(void) {
-    struct decoder decoder;
+    struct decoder decoder = {0};
     int msg = decoder_init(&decoder);
     if (msg < 0) {
         fprintf(stderr, "Failed to create keyboard decoder: %s\n", strerror(-msg));
@@ -58,12 +59,13 @@ int main(void) {
                 status = keyboard_next_event(&keyboards.entries[i], &event);
                 if (status == KEYBOARD_DRAINED) break;
                 if (status == KEYBOARD_GONE)    {
-                    fprintf(stderr, 
-                            "%s appears to be gone. Removing...\n", 
+                    fprintf(stderr, "%s appears to be gone. Removing...\n", 
                             keyboards.entries[i].node);
+
                     keyboard_set_remove(&keyboards, i);
-                    pfd[i].revents = 0;
+
                     n_pollfds = keyboard_set_pollfds(&keyboards, pfd, MAX_KEYBOARDS);
+
                     removed = true;
                     break;
                 }
@@ -75,11 +77,8 @@ int main(void) {
                     int n = decoder_event(&keyboards.entries[i], &event, 
                                          buffer, sizeof(buffer));
 
-                    if (event.value == 1) {
-                        printf("%s", buffer);
-                        fflush(stdout);
-                        // printf("%s\ttype = %3d\tcode = %3d\txkb = %3s\tvalue = %3d\n", keyboards.entries[i].node, event.type, event.code, buffer, event.value);
-                    }
+                    if (n > 0) { printf("%.*s", n, buffer); fflush(stdout); }
+                    // printf("%s\ttype = %3d\tcode = %3d\txkb = %3s\tvalue = %3d\n", keyboards.entries[i].node, event.type, event.code, buffer, event.value);
 
                 }
             }
