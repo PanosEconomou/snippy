@@ -19,8 +19,8 @@
 int main(void) {
     struct trie trie; 
     trie_init(&trie, 64);
-    trie_insert(&trie, 7,  (const unsigned char *)"hello",  5);
-    trie_insert(&trie, 42, (const unsigned char *)"pank", 4);
+    trie_insert(&trie, 7,  (const unsigned char *)"hello", 5);
+    trie_insert(&trie, 42, (const unsigned char *)"pank ", 5);
 
     struct ring ring; 
     ring_init(&ring); 

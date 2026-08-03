@@ -9,9 +9,9 @@ add_executable(snippy)
 
 # Link external libraries
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(EVDEV REQUIRED IMPORTED_TARGET libevdev )
-pkg_check_modules(UDEV  REQUIRED IMPORTED_TARGET libudev  )
-pkg_check_modules(XKB   REQUIRED IMPORTED_TARGET xkbcommon)
+pkg_check_modules(EVDEV REQUIRED IMPORTED_TARGET libevdev      )
+pkg_check_modules(UDEV  REQUIRED IMPORTED_TARGET libudev       )
+pkg_check_modules(XKB   REQUIRED IMPORTED_TARGET xkbcommon     )
 pkg_check_modules(WLC   REQUIRED IMPORTED_TARGET wayland-client)
 target_link_libraries(snippy 
     PRIVATE 
@@ -29,6 +29,7 @@ target_sources(snippy
         src/decoder.c
         src/ring.c
         src/trie.c
+        src/snippet.c
     PRIVATE
         FILE_SET HEADERS
         BASE_DIRS 
@@ -38,4 +39,5 @@ target_sources(snippy
             include/decoder.h
             include/ring.h
             include/trie.h
+            include/snippet.h
 )
