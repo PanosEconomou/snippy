@@ -26,7 +26,7 @@ void ring_init(struct ring* ring)
 /* ─────  Mutators  ─────────────────────────────────────────────────────────────── */
 
 
-void ring_push(struct ring* ring, char thing)
+void ring_push(struct ring* ring, unsigned char thing)
 {
     /* NOTE: the bitwize & operation acts like % */ 
     ring->head    = (ring->head + 1) & (RING_CAPACITY - 1);
@@ -43,17 +43,17 @@ void ring_pop(struct ring* ring)
     ring->content =  ring->content > 0? ring->content - 1 : 0; 
 }
 
-void ring_write(struct ring* ring, const char* data, size_t length) 
+void ring_write(struct ring* ring, const unsigned char* data, size_t length) 
 {
     for (size_t i = 0; i < length; i++) ring_push(ring, data[i]);
 }
 
-static char ring_peek_back(struct ring* ring, size_t spots)
+unsigned char ring_peek_back(const struct ring* ring, size_t spots)
 {
     return ring->data[(ring->head - spots) & (RING_CAPACITY - 1)];
 }
 
-int ring_read(struct ring* ring, size_t length, char* buffer, size_t capacity)
+int ring_read(struct ring* ring, size_t length, unsigned char* buffer, size_t capacity)
 {
     if (length > capacity)      length = capacity;
     if (length > ring->content) length = ring->content;

@@ -21,9 +21,9 @@
 /* ─────  Structures   ──────────────────────────────────────────────────────────── */
 
 struct ring {
-    char   data[RING_CAPACITY];             /* Data character buffer                */ 
-    size_t head;                            /* Position of the last character       */
-    size_t content;                         /* How much of the data is not garbage  */
+    unsigned char data[RING_CAPACITY];      /* Data character buffer                */ 
+    size_t        head;                     /* Position of the last character       */
+    size_t        content;                  /* How much of the data is not garbage  */
 };
 
 /* ─────  Ring  ─────────────────────────────────────────────────────────────────── */
@@ -33,10 +33,13 @@ void ring_init (struct ring* ring);
 /* ─────  Mutators  ─────────────────────────────────────────────────────────────── */
 
 
-void ring_push (struct ring* ring, char thing);
+void ring_push (struct ring* ring, unsigned char thing);
 void ring_pop  (struct ring* ring);
-void ring_write(struct ring* ring, const char* data, size_t length);
-int  ring_read (struct ring* ring, size_t length, char* buffer, size_t capacity);
+void ring_write(struct ring* ring, const unsigned char* data, size_t length);
+
+unsigned char ring_peek_back(const struct ring* ring, size_t spots);
+int ring_read (struct ring* ring, size_t length, unsigned char* buffer, size_t capacity);
+
 
 #endif
 
