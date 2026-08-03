@@ -1,9 +1,11 @@
 #include "keyboard.h"
 #include "decoder.h"
 #include "ring.h"
+#include "trie.h"
 
 #include <fcntl.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +17,10 @@
 #include <xkbcommon/xkbcommon.h>
 
 int main(void) {
+    struct trie trie; 
+    trie_init(&trie, 64);
+    trie_insert(&trie, 7,  (const unsigned char *)"hello",  5);
+    trie_insert(&trie, 42, (const unsigned char *)"pank", 4);
 
     struct ring ring; 
     ring_init(&ring); 
@@ -48,8 +54,8 @@ int main(void) {
     size_t n_pollfds = keyboard_set_pollfds(&keyboards, pfd, MAX_KEYBOARDS);
 
     struct input_event event = {0};
-    char buffer[16];
-    char output[RING_CAPACITY];
+    unsigned char buffer[16];
+    unsigned char output[RING_CAPACITY];
     while (keyboards.count > 0) {
         int response = poll(pfd, n_pollfds, -1);
         if (response < 0) {
@@ -86,7 +92,7 @@ int main(void) {
                     if (event.code == 14) {
                         ring_pop(&ring);
 
-                        system("clear");
+                        int rc = system("clear");
                         ring_read(&ring, ring.content, output, RING_CAPACITY);
                         printf("%3d: %.*s\n", (int)ring.content, (int)ring.content, output);
                         fflush(stdout);
@@ -94,10 +100,13 @@ int main(void) {
                     if (n > 0) { 
                         ring_write(&ring, buffer, n);
 
-                        system("clear");
+                        int rc = system("clear");
                         ring_read(&ring, ring.content, output, RING_CAPACITY);
                         printf("%3d: %.*s\n", (int)ring.content, (int)ring.content, output);
-                        fflush(stdout);
+                        
+                        uint32_t snippet = trie_parse_ring(&trie, &ring);
+                        if (snippet != SNIPPET_NONE) 
+                            printf("\ttrie: I found snippet =%2d\n", snippet);
                     }
                     
                     // printf("%s\ttype = %3d\tcode = %3d\txkb = %3s\tvalue = %3d\n", keyboards.entries[i].node, event.type, event.code, buffer, event.value);

@@ -233,7 +233,7 @@ struct xkb_keymap* decoder_get_keymap(struct xkb_context* context)
 }
 
 int decoder_event(struct keyboard* keyboard, const struct input_event* event, 
-                  char *buffer, size_t buffer_size)
+                  unsigned char *buffer, size_t buffer_size)
 {
     if (event->type != EV_KEY) return 0;
 
@@ -246,7 +246,8 @@ int decoder_event(struct keyboard* keyboard, const struct input_event* event,
         bool alt  = xkb_state_mod_name_is_active(keyboard->state, XKB_MOD_NAME_ALT, 
                                                  XKB_STATE_MODS_EFFECTIVE);
         if (!ctrl && !alt) 
-            length = xkb_state_key_get_utf8(keyboard->state, code, buffer, buffer_size);
+            length = xkb_state_key_get_utf8(keyboard->state, code, 
+                                            (char*)buffer, buffer_size);
     }
 
     if (event->value != 2) {

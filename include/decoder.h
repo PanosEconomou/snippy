@@ -60,7 +60,7 @@ struct xkb_keymap*  decoder_get_keymap   (struct xkb_context*       context);
 
 int decoder_event (struct keyboard*          keyboard, 
                    const struct input_event* event,
-                   char*                     buffer, 
+                   unsigned char*            buffer, 
                    size_t                    buffer_size);
 
 #endif
