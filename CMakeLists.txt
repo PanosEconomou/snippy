@@ -28,6 +28,7 @@ target_sources(snippy
         src/keyboard.c
         src/decoder.c
         src/ring.c
+        src/trie.c
     PRIVATE
         FILE_SET HEADERS
         BASE_DIRS 
@@ -36,4 +37,5 @@ target_sources(snippy
             include/keyboard.h
             include/decoder.h
             include/ring.h
+            include/trie.h
 )
