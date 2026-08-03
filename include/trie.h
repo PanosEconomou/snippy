@@ -19,7 +19,6 @@
 /* ─────  Constants  ────────────────────────────────────────────────────────────── */
 
 #define TRIE_NONE    0xFFFFFFFFu            /* max for uint32_t, to act as NULL     */
-#define SNIPPET_NONE 0xFFFFFFFFu            /* max for uint32_t, to act as NULL     */
 
 /* ─────  Status Codes  ─────────────────────────────────────────────────────────── */
 

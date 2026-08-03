@@ -10,6 +10,7 @@
 /* -----  Headers  ──────────────────────────────────────────────────────────────── */
 
 #include "trie.h"
+#include "snippet.h"
 #include "ring.h"
 
 #include <errno.h>
