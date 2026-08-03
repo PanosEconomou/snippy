@@ -13,12 +13,14 @@ pkg_check_modules(EVDEV REQUIRED IMPORTED_TARGET libevdev      )
 pkg_check_modules(UDEV  REQUIRED IMPORTED_TARGET libudev       )
 pkg_check_modules(XKB   REQUIRED IMPORTED_TARGET xkbcommon     )
 pkg_check_modules(WLC   REQUIRED IMPORTED_TARGET wayland-client)
+pkg_check_modules(LUA   REQUIRED IMPORTED_TARGET luajit        )
 target_link_libraries(snippy 
     PRIVATE 
         PkgConfig::EVDEV
         PkgConfig::UDEV
         PkgConfig::XKB
         PkgConfig::WLC
+        PkgConfig::LUA
 )
 
 # My own files
@@ -29,6 +31,7 @@ target_sources(snippy
         src/decoder.c
         src/ring.c
         src/trie.c
+        src/config.c
         src/snippet.c
     PRIVATE
         FILE_SET HEADERS
@@ -39,5 +42,6 @@ target_sources(snippy
             include/decoder.h
             include/ring.h
             include/trie.h
+            include/config.h
             include/snippet.h
 )

@@ -2,6 +2,7 @@
 #include "decoder.h"
 #include "ring.h"
 #include "trie.h"
+#include "snippet.h"
 
 #include <fcntl.h>
 #include <stddef.h>

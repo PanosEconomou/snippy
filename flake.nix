@@ -21,6 +21,7 @@
         udev
         libevdev
         libxkbcommon
+        luajit
       ];
       shellHook = ''
         alias m="cmake --build build && ./build/snippy"
