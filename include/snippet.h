@@ -13,14 +13,13 @@
 /* -----  Headers  ──────────────────────────────────────────────────────────────── */
 
 #include "trie.h"
-#include "ring.h"
-#include "config.h"
 
 #include <stdint.h>
 
 /* ─────  Constants  ────────────────────────────────────────────────────────────── */
 
-#define SNIPPET_NONE 0xFFFFFFFFu            /* max for uint32_t, to act as NULL     */
+#define SNIPPET_NONE          0xFFFFFFFFu   /* max for uint32_t, to act as NULL     */
+#define SNIPPET_EXPANSION_MAX 4000          /* max for wayland message is 4096 B    */
 
 /* ─────  Snippet Types  ────────────────────────────────────────────────────────── */
 
@@ -36,9 +35,22 @@ enum snippet_parse {
 
 /* ─────  Structures   ──────────────────────────────────────────────────────────── */
 
+struct snippet_text {
+    unsigned char* text;                    /* string                               */
+    uint16_t       length;                  /* string length                        */
+};
+
+struct snippet_data {                       /* explicit storage for new snippets    */
+    struct snippet_text trigger;            /* trigger string                       */
+    union {                                 /* only store one based on type         */
+        struct snippet_text expansion;      /* expansion text if SNIPPET_LITERAL    */
+        int callback;                       /* reference to expander callback       */
+    };
+};
+
 struct snippet_trigger {
-        uint32_t start;                     /* blob index for trigger start         */
-        uint16_t length;                    /* length of trigger                    */
+    uint32_t start;                         /* blob index for trigger start         */
+    uint16_t length;                        /* length of trigger                    */
 };
 
 struct snippet_expander {                   /* handles expansion of callback snips  */
@@ -69,7 +81,7 @@ struct snippet {
 struct snippet_triggers {                   /* storage for trigges                  */
     uint32_t       capacity;                /* max number of stored triggers        */
     uint32_t       write;                   /* next available trigger index         */
-    unsigned char* triggers;                /* string with all triggers             */
+    unsigned char* blob;                    /* string with all triggers             */
 };
 
 struct snippet_expansions {                 /* storage for expansions               */
@@ -82,7 +94,7 @@ struct snippet_expansions {                 /* storage for expansions           
 struct snippet_set {
     uint32_t        capacity;               /* max number of snippets               */
     uint32_t        write;                  /* next available snippet index         */
-    struct snippet* snippets;               /* list of snippets                     */
+    struct snippet* list;                   /* list of snippets                     */
 
     struct trie     trie;                   /* trie to search for them              */
 
@@ -93,26 +105,18 @@ struct snippet_set {
 
 /* ─────  Snippet Set  ──────────────────────────────────────────────────────────── */
 
-/* don't forget to use load.h to parse a config into a snippet_set */
-int  snippet_set_init(struct snippet_set* snippets, uint32_t capacity);
+/* don't forget to use parse.h to parse a config into a snippet_set */
 void snippet_set_free(struct snippet_set* snippets);
 
 /* ─────  Snippet Accessors  ────────────────────────────────────────────────────── */
 
-/* TODO: idk find some accessor methods I guess... */
+int snippet_set_insert(struct snippet_set*  snippets, 
+                       struct snippet_data* data);
 
-/* ─────  Mutation Methods  ─────────────────────────────────────────────────────── */
-
-int snippet_set_insert(struct snippet_set* snippets, 
-                       struct snippet*     snippet, 
-                              void*        data);
-
-uint32_t snippet_set_parse_ring(const struct snippet_set* snippets, 
-                                const struct ring*        ring);
+/* ─────  Useful Methods  ───────────────────────────────────────────────────────── */
 
 enum snippet_parse snippet_set_expand(const struct snippet_set* snippets, 
-                                                   uint32_t     snippet);
-
+                                      uint32_t     snippet);
 #endif
 
 /* ──────────────────────────────────────────────────────────────────────────────── */

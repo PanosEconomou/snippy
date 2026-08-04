@@ -33,6 +33,7 @@ target_sources(snippy
         src/trie.c
         src/config.c
         src/snippet.c
+        src/parse.c
     PRIVATE
         FILE_SET HEADERS
         BASE_DIRS 
@@ -44,4 +45,5 @@ target_sources(snippy
             include/trie.h
             include/config.h
             include/snippet.h
+            include/parse.h
 )

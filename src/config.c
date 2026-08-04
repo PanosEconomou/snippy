@@ -26,16 +26,16 @@ static int config_stage_table(lua_State* state)
     return luaL_ref(state, LUA_REGISTRYINDEX);
 }
 
-static void config_stage_commands (struct config* config, const luaL_Reg* commands,
-                                  int table)
+static void config_stage_commands (struct config* config, const luaL_Reg* commands)
 {
     for (; commands->name && commands->func; commands++) {
-                                                                /* Lua stack        */
-        lua_rawgeti(config->state, LUA_REGISTRYINDEX, table);   /* [tab]            */
-        lua_pushlightuserdata(config->state, config);           /* [tab][conf]      */
+                                                            /* Lua stack            */
+        lua_rawgeti(config->state, LUA_REGISTRYINDEX, 
+                    config->table);                         /* [table]              */
+        lua_pushlightuserdata(config->state, config);       /* [table][config]      */
         
-        lua_pushcclosure(config->state, commands->func, 2);     /* [tab][conf][fun] */
-        lua_setglobal(config->state, commands->name);           /*                  */
+        lua_pushcclosure(config->state, commands->func, 2); /* [table][config][fun] */
+        lua_setglobal(config->state, commands->name);       /* NOTHING! :>          */
     }
 }
 
@@ -154,7 +154,7 @@ int config_load(struct config* config, const char* filename)
     config->table = config_stage_table(config->state);
     if (config->table < 0) return -ENOMEM;
 
-    config_stage_commands(config, config_commands, config->table);
+    config_stage_commands(config, config_commands);
 
     if (luaL_dofile(config->state, filename) != 0) {
 
