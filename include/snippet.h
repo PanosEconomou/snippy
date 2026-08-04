@@ -14,6 +14,7 @@
 
 #include "trie.h"
 #include "ring.h"
+#include "config.h"
 
 #include <stdint.h>
 
@@ -25,7 +26,7 @@
 
 enum snippet_type {
     SNIPPET_LITERAL,
-    SNIPPET_LUA,
+    SNIPPET_CALLBACK,
 };
 
 enum snippet_parse {
@@ -40,21 +41,28 @@ struct snippet_trigger {
         uint16_t length;                    /* length of trigger                    */
 };
 
+struct snippet_expander {                   /* handles expansion of callback snips  */
+    void* context;                          /* data needed to facilitate callback   */
+    int (*expand)(void*          context,   /* data needed to facilitate callback   */
+                  int            reference, /* which snippet are we expanding?      */
+                  unsigned char* out,       /* text to write if any                 */
+                  size_t         length);   /* bytes to write                       */
+};
+
 struct snippet_expansion {
-    union {                                 /* only access one based on type        */
+    union {                                 /* only store one based on type         */
         struct {
             uint32_t start;                 /* blob index for literal snippet start */
             uint16_t length;                /* length of literal expansion          */
         } literal;
 
-        int expand_lua;                     /* index to lua expand callback         */
+        int callback;                       /* reference to expander callback       */
     };
 };
 
 struct snippet {
     enum   snippet_type      type;          /* default: SNIPPET_LITERAL             */
     struct snippet_trigger   trigger;       /* what you need to trigger the snippet */
-
     struct snippet_expansion expansion;     /* different expansion based on type    */
 };
 
@@ -68,7 +76,7 @@ struct snippet_expansions {                 /* storage for expansions           
     uint32_t       capacity;                /* max number of stored expansions      */
     uint32_t       write;                   /* next available expansion index       */
     unsigned char* literal;                 /* string with all literal expansions   */
-    int*           lua;                     /* lua callback id array                */
+    struct snippet_expander expander;       /* how to expand callback snippets      */
 };
 
 struct snippet_set {
@@ -85,6 +93,7 @@ struct snippet_set {
 
 /* ─────  Snippet Set  ──────────────────────────────────────────────────────────── */
 
+/* don't forget to use load.h to parse a config into a snippet_set */
 int  snippet_set_init(struct snippet_set* snippets, uint32_t capacity);
 void snippet_set_free(struct snippet_set* snippets);
 
@@ -94,15 +103,15 @@ void snippet_set_free(struct snippet_set* snippets);
 
 /* ─────  Mutation Methods  ─────────────────────────────────────────────────────── */
 
-int snippet_set_insert_literal(struct snippet_set*  snippets,
-                               const unsigned char* trigger,   uint32_t trigger_length,
-                               const unsigned char* expansion, uint32_t expansion_length);
+int snippet_set_insert(struct snippet_set* snippets, 
+                       struct snippet*     snippet, 
+                              void*        data);
 
 uint32_t snippet_set_parse_ring(const struct snippet_set* snippets, 
                                 const struct ring*        ring);
 
-enum snippet_parse snippet_set_execute(const struct snippet_set* snippets, 
-                                       uint32_t snippet);
+enum snippet_parse snippet_set_expand(const struct snippet_set* snippets, 
+                                                   uint32_t     snippet);
 
 #endif
 
