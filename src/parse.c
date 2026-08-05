@@ -18,14 +18,17 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <lua.h>
 
 /* -----  Helpers  ──────────────────────────────────────────────────────────────── */
 
-static int parse_init_snippet_set(struct config* config, 
+static int parse_snippet_set_init(struct config* config, 
                                   struct snippet_set* snippets)
 {
+    if (config->snippet_count == 0) return -EINVAL;
+
     int return_code = 0;
 
     *snippets = (struct snippet_set){0};
@@ -51,7 +54,7 @@ static int parse_init_snippet_set(struct config* config,
     snippets->expansions = (struct snippet_expansions) {
         .capacity = config->literal_bytes,
         .write    = 0,
-        .literal  = calloc(config->literal_count, sizeof(unsigned char)),
+        .literal  = calloc(config->literal_bytes, sizeof(unsigned char)),
         .expander = (struct snippet_expander){0},
     };
     if (!snippets->expansions.literal) { return_code = -ENOMEM; goto error_literal; }
@@ -69,55 +72,118 @@ error_list:
     return return_code;
 }
 
-static int parse_create_expander(struct config* config, 
-                                 struct snippet_expander* expander)
-{
-    return 0;
-}
-
-static void cast_unsigned(lua_State* state, int idx, struct snippet_text* out)
+static int parse_read_text(lua_State* state, int idx, struct snippet_text* out)
 {
 
     size_t length;
     const char* text = lua_tolstring(state, idx, &length);
+    if (!text) return - EINVAL;
 
-    out->text = (unsigned char*) text;
+    out->text   = (const unsigned char*) text;
     out->length = (uint16_t) length;
+
+    return (int) length;
+}
+
+static int parse_lua_expander(void* context, int reference, unsigned char* out, 
+                              size_t length )
+{
+    lua_State* state = context;
+
+    lua_rawgeti(state, LUA_REGISTRYINDEX, reference);
+
+    if (lua_pcall(state, 0, 1, 0) != 0) {
+        lua_pop(state, 1);
+        return -EINVAL;
+    }
+
+    struct snippet_text data = {0};
+    int return_code = parse_read_text(state, -1, &data);
+    if (return_code < 0){
+        lua_pop(state, 1);
+        return return_code;
+    } 
+
+    if (data.length > length) data.length = length;
+    memcpy(out, data.text, data.length);
+
+    lua_pop(state, 1);
+
+    return (int)data.length;
+}
+
+static int parse_create_expander(struct config* config, 
+                                 struct snippet_expander* expander)
+{
+    expander->context = config->state;
+    expander->expand  = parse_lua_expander;
+    return 0;
 }
 
 static int parse_table(struct config* config, struct snippet_set* snippets)
 {
-
+    int return_code = 0;
 
     lua_rawgeti(config->state, LUA_REGISTRYINDEX, config->table);   /* lua: [table] */
 
-    struct snippet_data data    = {0};
     size_t table_size = lua_objlen(config->state, -1);
     for (size_t i = 1; i <= table_size; i++) {
+
         lua_rawgeti(config->state, -1, i);              /* [table][ith]             */
         int i_i = lua_gettop(config->state);
 
         lua_getfield(config->state, i_i, "trigger");    /* [table][ith][trigger]    */
         int i_trigger = lua_gettop(config->state);
 
-        lua_getfield(config->state, i_i, "expansion");  /* ...[trigger][expansion]  */
+        lua_getfield(config->state, i_i, "expand");     /* ..[ith][trigger][expand] */
         int i_expansion = lua_gettop(config->state);
 
-        cast_unsigned(config->state, i_trigger, &data.trigger);
+        struct snippet_data data = {0};
+
+        int error = parse_read_text(config->state, i_trigger, &data.trigger);
+        if (error < 0) {
+            lua_pop(config->state, 3);
+            return_code = error;
+            break;
+        }
 
         int expansion_type = lua_type(config->state, i_expansion);
         switch (expansion_type) {
             case LUA_TSTRING:
-                cast_unsigned(config->state, i_expansion, &data.expansion);
-            case LUA_TFUNCTION:
-                data.callback = 0;
-        }
+                data.type = SNIPPET_LITERAL;
 
+                error = parse_read_text(config->state, i_expansion, &data.expansion);
+                if (error < 0) {
+                    lua_pop(config->state, 3);
+                    return_code = error;
+                }
+                break;
+
+            case LUA_TFUNCTION:
+                data.type = SNIPPET_CALLBACK;
+
+                lua_pushvalue(config->state, -1);       /* ...[expand][expand]      */
+                data.callback = luaL_ref(config->state, LUA_REGISTRYINDEX);
+
+                break;
+        }                                               /* ...[trigger][expand]     */
+        if (return_code < 0) break;
+
+        return_code = snippet_set_insert(snippets, &data);
 
         lua_pop(config->state, 3);                      /* [table]                  */
+
+        if (return_code < 0) {
+            if (data.type == SNIPPET_CALLBACK) {
+                luaL_unref(config->state, LUA_REGISTRYINDEX, data.callback);
+            }
+            break;
+        }
     }
 
-    return 0;
+    lua_pop(config->state, 1);                          /*                          */
+
+    return return_code;
 }
 
 /* ─────  Useful Methods  ───────────────────────────────────────────────────────── */
@@ -125,20 +191,18 @@ static int parse_table(struct config* config, struct snippet_set* snippets)
 int parse_config(struct config* config, struct snippet_set* snippets)
 {
     int return_code = 0;
-    return_code = parse_init_snippet_set(config, snippets);
-    if (return_code < 0) goto error_snippets;
+    return_code = parse_snippet_set_init(config, snippets);
+    if (return_code < 0) goto error;
 
     return_code = parse_create_expander(config, &snippets->expansions.expander);
-    if (return_code < 0) goto error_expander;
+    if (return_code < 0) goto error;
 
     return_code = parse_table(config, snippets);
-    if (return_code < 0) goto error_table;
+    if (return_code < 0) goto error;
 
     return 0;
 
-error_table:
-error_expander:
-error_snippets:
+error:
     snippet_set_free(snippets);
     return return_code;
 }
