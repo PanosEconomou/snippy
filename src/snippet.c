@@ -107,6 +107,8 @@ int snippet_set_insert(struct snippet_set*  snippets, struct snippet_data* data)
 int snippet_set_expand(const struct snippet_set* snippets, 
                             uint32_t snippet, unsigned char* buffer, size_t length)
 {
+    if (snippet == SNIPPET_NONE) return -EINVAL;
+
     size_t output_length = 0;
     struct snippet snip = snippets->list[snippet];
     switch(snip.type) {

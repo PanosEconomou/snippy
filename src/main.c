@@ -1,8 +1,9 @@
 #include "keyboard.h"
 #include "decoder.h"
 #include "ring.h"
-#include "trie.h"
+#include "config.h"
 #include "snippet.h"
+#include "parse.h"
 
 #include <fcntl.h>
 #include <stddef.h>
@@ -18,10 +19,20 @@
 #include <xkbcommon/xkbcommon.h>
 
 int main(void) {
-    struct trie trie; 
-    trie_init(&trie, 64);
-    trie_insert(&trie, 7,  (const unsigned char *)"hello", 5);
-    trie_insert(&trie, 42, (const unsigned char *)"pank ", 5);
+
+    struct config config = {0};
+    int config_return = config_init(&config, "config.lua");
+    if (config_return < 0) {
+        fprintf(stderr, "Failed to load config: %s\n", strerror(-config_return));
+        return EXIT_FAILURE;
+    }
+
+    struct snippet_set snippets = {0};
+    int parse_return = parse_config(&config, &snippets);
+    if (parse_return < 0) {
+        fprintf(stderr, "Failed to load snippets: %s\n", strerror(-parse_return));
+        return EXIT_FAILURE;
+    }
 
     struct ring ring; 
     ring_init(&ring); 
@@ -105,9 +116,11 @@ int main(void) {
                         ring_read(&ring, ring.content, output, RING_CAPACITY);
                         printf("%3d: %.*s\n", (int)ring.content, (int)ring.content, output);
                         
-                        uint32_t snippet = trie_parse_ring(&trie, &ring);
-                        if (snippet != SNIPPET_NONE) 
-                            printf("\ttrie: I found snippet =%2d\n", snippet);
+                        uint32_t snippet = parse_keystrokes(&snippets, &ring);
+                        unsigned char expansion[SNIPPET_EXPANSION_MAX];
+                        rc = snippet_set_expand(&snippets, snippet, expansion, SNIPPET_EXPANSION_MAX);
+
+                        if (rc > 0) printf("\tsnippet triggered: %.*s\n", rc, expansion);
                     }
                     
                     // printf("%s\ttype = %3d\tcode = %3d\txkb = %3s\tvalue = %3d\n", keyboards.entries[i].node, event.type, event.code, buffer, event.value);
