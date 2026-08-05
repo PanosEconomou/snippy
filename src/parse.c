@@ -207,3 +207,7 @@ error:
     return return_code;
 }
 
+uint32_t parse_keystrokes(const struct snippet_set *snippets, const struct ring *ring)
+{
+    return trie_parse_ring(&snippets->trie, ring);
+}
